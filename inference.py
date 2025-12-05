@@ -1,63 +1,25 @@
-# inference.py
-import torch
+# app.py
+import streamlit as st
 from PIL import Image
-import torchvision.transforms as transforms
-from model import SRCNN
-from pathlib import Path
 
-# ----------------------------
-# Device setup
-# ----------------------------
-device = "cuda" if torch.cuda.is_available() else "cpu"
+st.title("Fluorescence Microscopy Super-Resolution (Demo)")
 
-# ----------------------------
-# Define paths
-# ----------------------------
-weights_dir = Path("data/weights")
-weights_dir.mkdir(parents=True, exist_ok=True)  # create folder if missing
-model_path = weights_dir / "model.pth"
+uploaded_file = st.file_uploader("Upload a microscopy image", type=["png", "jpg", "jpeg"])
+if uploaded_file:
+    # Load uploaded image
+    img = Image.open(uploaded_file).convert("L")  # grayscale
+    st.subheader("Original Image")
+    st.image(img, use_column_width=True)
 
-# ----------------------------
-# Load SRCNN model
-# ----------------------------
-if not model_path.exists():
-    raise FileNotFoundError(
-        f"{model_path} not found. Please download model.pth from Kaggle and place it in {weights_dir}"
-    )
+    # Simulate super-resolution by upscaling
+    scale_factor = st.slider("Upscale Factor", 1.5, 4.0, 2.0, 0.1)
+    new_size = (int(img.width * scale_factor), int(img.height * scale_factor))
+    enhanced_img = img.resize(new_size, resample=Image.BICUBIC)
 
-model = SRCNN().to(device)
-model.load_state_dict(torch.load(model_path, map_location=device))
-model.eval()
+    st.subheader("Enhanced Image (Demo)")
+    st.image(enhanced_img, use_column_width=True)
 
-# ----------------------------
-# Image preprocessing function
-# ----------------------------
-def preprocess_image(img_path: str):
-    img_path = Path(img_path)
-    if not img_path.exists():
-        raise FileNotFoundError(f"Image file not found: {img_path}")
-    img = Image.open(img_path).convert("L")  # convert to grayscale
-    transform = transforms.ToTensor()
-    input_tensor = transform(img).unsqueeze(0).to(device)
-    return img, input_tensor
-
-# ----------------------------
-# Super-resolution function
-# ----------------------------
-def super_resolve(input_tensor, save_path: str = None):
-    """
-    input_tensor: torch.Tensor of shape [1, 1, H, W]
-    save_path: optional path to save enhanced image
-    """
-    with torch.no_grad():
-        output = model(input_tensor)
-    
-    output_img = transforms.ToPILImage()(output.squeeze().cpu())
-    
-    # Save enhanced image if path provided
-    if save_path:
-        save_path = Path(save_path)
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        output_img.save(save_path)
-    
-    return output_img
+    # Optional: Save enhanced image
+    save_path = f"enhanced_{uploaded_file.name}"
+    enhanced_img.save(save_path)
+    st.success(f"Enhanced image saved as: {save_path}")
