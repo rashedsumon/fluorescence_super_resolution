@@ -1,0 +1,10 @@
+streamlit
+torch
+torchvision
+numpy
+matplotlib
+pillow
+scikit-image
+coremltools
+kagglehub
+opencv-python
