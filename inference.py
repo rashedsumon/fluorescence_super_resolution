@@ -1,17 +1,16 @@
+# inference.py
 import torch
 from PIL import Image
 import torchvision.transforms as transforms
 from model import SRCNN
 from pathlib import Path
-import matplotlib.pyplot as plt
 import kagglehub
-import os
+import shutil
 
 # ----------------------------
-# Setup device
+# Device setup
 # ----------------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print("Using device:", device)
 
 # ----------------------------
 # Ensure model file exists
@@ -19,9 +18,14 @@ print("Using device:", device)
 model_path = Path("model.pth")
 if not model_path.exists():
     print("Model not found. Downloading from KaggleHub...")
-    # Replace with your actual KaggleHub model dataset path
-    kagglehub.dataset_download("shiveshcgatech/fluorescence-super-resolution-model", target_dir=".")
-    print("Model downloaded.")
+    dataset_path = kagglehub.dataset_download("shiveshcgatech/fluorescence-super-resolution-model")
+    downloaded_model = Path(dataset_path) / "model.pth"
+    
+    if downloaded_model.exists():
+        shutil.copy(downloaded_model, model_path)
+        print(f"Model copied to {model_path}")
+    else:
+        raise FileNotFoundError(f"model.pth not found in downloaded dataset at {dataset_path}")
 
 # ----------------------------
 # Load SRCNN model
@@ -31,39 +35,21 @@ model.load_state_dict(torch.load(model_path, map_location=device))
 model.eval()
 
 # ----------------------------
-# Ensure image file exists
+# Image preprocessing function
 # ----------------------------
-img_path = Path("data/raw/images/sample.png")
-if not img_path.exists():
-    raise FileNotFoundError(f"Image file not found at {img_path}. Please check your path.")
+def preprocess_image(img_path: str):
+    img_path = Path(img_path)
+    if not img_path.exists():
+        raise FileNotFoundError(f"Image file not found: {img_path}")
+    img = Image.open(img_path).convert("L")  # grayscale
+    transform = transforms.ToTensor()
+    input_tensor = transform(img).unsqueeze(0).to(device)
+    return img, input_tensor
 
 # ----------------------------
-# Load and preprocess image
+# Super-resolution function
 # ----------------------------
-img = Image.open(img_path).convert("L")  # grayscale
-transform = transforms.ToTensor()
-input_tensor = transform(img).unsqueeze(0).to(device)
-
-# ----------------------------
-# Super-resolution
-# ----------------------------
-with torch.no_grad():
-    output = model(input_tensor)
-
-# Convert output tensor to image
-output_img = transforms.ToPILImage()(output.squeeze().cpu())
-
-# ----------------------------
-# Display images
-# ----------------------------
-plt.figure(figsize=(10, 5))
-plt.subplot(1, 2, 1)
-plt.title("Original")
-plt.imshow(img, cmap="gray")
-plt.axis("off")
-
-plt.subplot(1, 2, 2)
-plt.title("Enhanced")
-plt.imshow(output_img, cmap="gray")
-plt.axis("off")
-plt.show()
+def super_resolve(input_tensor):
+    with torch.no_grad():
+        output = model(input_tensor)
+    return transforms.ToPILImage()(output.squeeze().cpu())
