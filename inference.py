@@ -4,8 +4,6 @@ from PIL import Image
 import torchvision.transforms as transforms
 from model import SRCNN
 from pathlib import Path
-import kagglehub
-import shutil
 
 # ----------------------------
 # Device setup
@@ -13,23 +11,15 @@ import shutil
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ----------------------------
-# Ensure model file exists
+# Load SRCNN model
 # ----------------------------
 model_path = Path("model.pth")
 if not model_path.exists():
-    print("Model not found. Downloading from KaggleHub...")
-    dataset_path = kagglehub.dataset_download("shiveshcgatech/fluorescence-super-resolution-model")
-    downloaded_model = Path(dataset_path) / "model.pth"
-    
-    if downloaded_model.exists():
-        shutil.copy(downloaded_model, model_path)
-        print(f"Model copied to {model_path}")
-    else:
-        raise FileNotFoundError(f"model.pth not found in downloaded dataset at {dataset_path}")
+    raise FileNotFoundError(
+        f"model.pth not found in project folder. "
+        "Please download it manually and place it here."
+    )
 
-# ----------------------------
-# Load SRCNN model
-# ----------------------------
 model = SRCNN().to(device)
 model.load_state_dict(torch.load(model_path, map_location=device))
 model.eval()
